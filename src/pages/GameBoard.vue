@@ -1,17 +1,14 @@
 <template lang="html">
     <div
-        class="lists"
-        ref="lists"
+        class="game-board"
+        ref="gameBoard"
         v-if="user && platform"
-        :class="{ dark: darkModeEnabled }"
-        @click.self="loseFocus"
     >
         <game-board-placeholder :id="gameDetailId" v-if="loading" />
 
         <modal
             ref="game"
             large
-            no-padding
             @close="closeGame"
         >
             <game-detail
@@ -27,6 +24,7 @@
             :title="$t('tags.applyTag')"
             :message="$t('tags.useTags')"
             padded
+            confirm
         >
             <div slot="content">
                 <div
@@ -48,7 +46,7 @@
         <template>
             <list
                 :name="list.name"
-                :games="list.games"
+                :game-list="list.games"
                 :listIndex="listIndex"
                 :key="`${list.name}-${listIndex}`"
                 v-if="list && !loading"
@@ -57,34 +55,23 @@
             />
 
             <list-add
-                v-if="addingList || !list"
                 @scroll="scroll"
                 @update="updateLists"
-            />
-
-            <game-board-actions
-                v-else
-                @update="updateLists"
-                @scroll="scroll"
             />
         </template>
-
-        <!-- <dev-debug /> -->
     </div>
 </template>
 
 <script>
-import GameBoardActions from '@/components/GameBoard/GameBoardActions';
 import GameBoardPlaceholder from '@/components/GameBoard/GameBoardPlaceholder';
-import Tag from '@/components/Tags/Tag';
+import Tag from '@/components/Tag';
 import ListAdd from '@/components/Lists/ListAdd';
-import Panel from '@/components/Panel/Panel';
-import GameDetail from '@/pages/GameDetail';
-import Modal from '@/components/Modal/Modal';
-// import DevDebug from '@/components/DevDebug/DevDebug';
+import Modal from '@/components/Modal';
 import List from '@/components/Lists/List';
+import GameDetail from '@/pages/GameDetail';
+import { chunk } from 'lodash';
+import { mapState } from 'vuex';
 import draggable from 'vuedraggable';
-import { mapState, mapGetters } from 'vuex';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
 
@@ -94,12 +81,9 @@ export default {
     components: {
         draggable,
         List,
-        // DevDebug,
-        GameBoardActions,
         GameBoardPlaceholder,
         ListAdd,
         Tag,
-        Panel,
         GameDetail,
         Modal,
     },
@@ -113,12 +97,12 @@ export default {
             gameDetailListIndex: null,
             gameDetailId: null,
             gameTagsId: null,
+            queryLimit: 500,
         };
     },
 
     computed: {
-        ...mapState(['user', 'gameLists', 'addingList', 'platform', 'tags', 'games']),
-        ...mapGetters(['darkModeEnabled']),
+        ...mapState(['user', 'gameLists', 'platform', 'tags', 'games']),
 
         list() {
             return this.gameLists && this.platform && this.gameLists[this.platform.code]
@@ -128,10 +112,8 @@ export default {
     },
 
     mounted() {
-        this.$store.commit('CLEAR_ACTIVE_LIST_INDEX');
-
-        if (this.platform || this.$route.name === 'share-list') {
-            this.loadGameData();
+        if (this.platform) {
+            this.load();
             this.setPageTitle();
         } else {
             this.$router.push({ name: 'platforms' });
@@ -185,75 +167,70 @@ export default {
             this.$refs.tag.open(id);
         },
 
-        loseFocus() {
-            this.$store.commit('CLEAR_ACTIVE_LIST_INDEX');
-        },
-
         scroll() {
             this.$nextTick(() => {
-                const lists = this.$refs.lists;
-                lists.scrollLeft = lists.scrollWidth;
+                const gameBoard = this.$refs.gameBoard;
+                gameBoard.scrollLeft = gameBoard.scrollWidth;
             });
         },
 
         dragEnd() {
             this.dragging = false;
             this.draggingId = null;
-            this.$bus.$emit('TOAST', { message: 'Collection updated' });
+            this.$bus.$emit('TOAST', { message: 'List updated' });
             this.updateLists();
         },
 
         updateLists(force) {
+            // TOOD: move to actions
             db.collection('lists').doc(this.user.uid).set(this.gameLists, { merge: !force })
                 .catch(() => {
                     this.$bus.$emit('TOAST', { message: 'Authentication error', type: 'error' });
+                    this.$router.push({ name: 'sessionExpired' });
                 });
         },
 
-        loadGameData() {
-            if (this.list) {
-                const gameList = [];
+        load() {
+            const flattenedList = this.list
+                ? this.list.map(({ games }) => games).flat()
+                : [];
 
-                this.list.forEach((list) => {
-                    if (list && list.games.length) {
-                        list.games.forEach((id) => {
-                            if (!gameList.includes(id)) {
-                                gameList.push(id);
-                            }
-                        });
-                    }
-                });
+            const dedupedList = Array.from(new Set(flattenedList));
 
-                if (gameList.length > 0) {
-                    this.loading = true;
+            return dedupedList.length > this.queryLimit
+                ? this.loadGamesInChunks(dedupedList)
+                : this.loadGames(dedupedList);
+        },
 
-                    this.$store.dispatch('LOAD_GAMES', gameList)
-                        .then(() => {
-                            this.loading = false;
-                        })
-                        .catch(() => {
-                            this.$bus.$emit('TOAST', { message: 'Error loading game', type: 'error' });
-                        });
-                }
+        loadGames(gameList) {
+            if (gameList && gameList.length > 0) {
+                this.loading = true;
+
+                this.$store.dispatch('LOAD_GAMES', gameList.toString())
+                    .then(() => {
+                        this.loading = false;
+                    })
+                    .catch(() => {
+                        this.$bus.$emit('TOAST', { message: 'Error loading games', type: 'error' });
+                    });
             }
+        },
+
+        loadGamesInChunks(gameList) {
+            const chunkedGameList = chunk(gameList, this.queryLimit);
+
+            chunkedGameList.forEach((gameListChunk) => {
+                this.loadGames(gameListChunk);
+            });
         },
     },
 };
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
-    .draggable * {
-        color: $color-white;
-    }
-
-    .panel {
-        margin-right: $gp;
-        width: $list-width;
-    }
-
-    .lists {
+    .game-board {
         user-select: none;
         display: flex;
         align-items: flex-start;
@@ -263,10 +240,6 @@ export default {
         overflow-x: auto;
         overflow-x: overlay;
         display: flex;
-
-        &.empty {
-            background: $color-white;
-        }
     }
 
     .list-placeholder {

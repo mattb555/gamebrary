@@ -2,9 +2,8 @@ import Vue from 'vue';
 
 export default {
     SET_USER(state, data) {
-        state.isTouchDevice = ('ontouchstart' in window);
-
         state.user = {
+            lastLogin: data.metadata.lastSignInTime,
             uid: data.uid,
             displayName: data.displayName,
             email: data.email,
@@ -18,8 +17,28 @@ export default {
         state.gameLists = lists;
     },
 
+    SET_SLIDESHOW_OPEN(state, status) {
+        state.galleryOpen = status;
+    },
+
     SET_WALLPAPER_URL(state, url) {
         state.wallpaperUrl = url;
+    },
+
+    UPDATE_TAG(state, { tagName, tagHex, tempTag }) {
+        const updatedTag = {
+            ...state.tags[tempTag.tagName],
+            hex: tagHex,
+        };
+
+        const renaming = tagName !== tempTag.tagName;
+
+        if (renaming) {
+            Vue.set(state.tags, tagName, updatedTag);
+            Vue.delete(state.tags, tempTag.tagName);
+        } else {
+            state.tags[tempTag.tagName] = updatedTag;
+        }
     },
 
     SET_RELEASES(state, releases) {
@@ -75,21 +94,12 @@ export default {
         state.activeListIndex = listId;
     },
 
-    SET_SEARCH_ACTIVE(state, status) {
-        state.searchActive = status;
-    },
-
-    SET_ADDING_LIST_STATUS(state, status) {
-        state.addingList = status;
-    },
-
     SET_ACTIVE_LIST_INDEX(state, listIndex) {
         state.activeListIndex = listIndex;
     },
 
     CLEAR_ACTIVE_LIST_INDEX(state) {
         state.activeListIndex = null;
-        state.searchActive = null;
         state.addingList = false;
     },
 
@@ -97,70 +107,23 @@ export default {
         state.platform = platform;
     },
 
-    SORT_LIST_ALPHABETICALLY(state, listIndex) {
-        const games = state.gameLists[state.platform.code][listIndex].games;
-
-        games.sort((a, b) => {
-            const gameA = state.games[a] && state.games[a].name
-                ? state.games[a].name.toUpperCase()
-                : '';
-
-            const gameB = state.games[b] && state.games[b].name
-                ? state.games[b].name.toUpperCase()
-                : '';
-
-            if (gameA < gameB) {
-                return -1;
-            }
-
-            return gameA > gameB ? 1 : 0;
-        });
+    SAVE_LISTS(state, lists) {
+        state.gameLists = lists;
     },
 
-    SORT_LIST_BY_RATING(state, listIndex) {
-        const games = state.gameLists[state.platform.code][listIndex].games;
-
-        games.sort((a, b) => {
-            const gameA = state.games[a] && state.games[a].rating
-                ? state.games[a].rating
-                : 0;
-
-            const gameB = state.games[b] && state.games[b].rating
-                ? state.games[b].rating
-                : 0;
-
-            if (gameA > gameB) {
-                return -1;
-            }
-
-            return gameA < gameB ? 1 : 0;
-        });
-    },
-
-    UPDATE_LIST_NAME(state, { listIndex, listName }) {
-        state.gameLists[state.platform.code][listIndex].name = listName;
-    },
-
-    UPDATE_LIST_VIEW(state, { listIndex, view }) {
-        state.gameLists[state.platform.code][listIndex].view = view;
-    },
-
-    UPDATE_LIST_SORT(state, { listIndex, sortOrder }) {
-        state.gameLists[state.platform.code][listIndex].sortOrder = sortOrder;
-    },
-
-    UPDATE_LIST_COVERS_SIZE(state, { listIndex, size }) {
-        state.gameLists[state.platform.code][listIndex].coversSize = size;
+    UPDATE_LIST_TYPE(state, { listIndex, type }) {
+        state.gameLists[state.platform.code][listIndex].type = type;
     },
 
     SET_SETTINGS(state, settings) {
         state.settings = settings;
     },
 
-    MOVE_LIST(state, { from, to }) {
-        const cutOut = state.gameLists[state.platform.code].splice(from, 1)[0];
-        state.gameLists[state.platform.code].splice(to, 0, cutOut);
-    },
+    // MOVE_LIST(state, { from, to }) {
+    //     const cutOut = state.gameLists[state.platform.code].splice(from, 1)[0];
+    //
+    //     state.gameLists[state.platform.code].splice(to, 0, cutOut);
+    // },
 
     REMOVE_LIST(state, index) {
         state.gameLists[state.platform.code].splice(index, 1);
@@ -176,17 +139,12 @@ export default {
         currentList.games.push(gameId);
     },
 
-    ADD_LIST(state, listName) {
-        const newList = {
-            games: [],
-            name: listName,
-        };
-
+    ADD_LIST(state, list) {
         if (!state.gameLists[state.platform.code]) {
             Vue.set(state.gameLists, state.platform.code, []);
         }
 
-        state.gameLists[state.platform.code].push(newList);
+        state.gameLists[state.platform.code].push(list);
     },
 
     REMOVE_GAME(state, { gameId, listId }) {

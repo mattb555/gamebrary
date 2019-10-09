@@ -1,8 +1,5 @@
 <template lang="html">
-    <section
-        v-if="game.screenshots"
-        :class="['game-screenshots', { dark: darkModeEnabled }]"
-    >
+    <section class="game-screenshots" v-if="game.screenshots">
         <h3>{{ $t('gameDetail.screenshots') }}</h3>
 
         <vue-gallery
@@ -21,7 +18,7 @@
 </template>
 
 <script>
-import { mapState, mapGetters } from 'vuex';
+import { mapState } from 'vuex';
 import VueGallery from 'vue-gallery';
 
 export default {
@@ -37,26 +34,31 @@ export default {
 
     computed: {
         ...mapState(['game']),
-        ...mapGetters(['darkModeEnabled']),
 
         screenshots() {
             // eslint-disable-next-line
             return this.game.screenshots
                 ? this.game.screenshots.map((image, index) => {
-                    const url = 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/';
+                    const href = `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${image.image_id}.jpg`;
 
                     return {
-                        href: `${url}${image.cloudinary_id}.jpg`,
+                        href,
                         title: `${this.game.name} (${index + 1} of ${this.game.screenshots.length})`,
                     };
                 })
                 : null;
         },
 
+        coverUrl() {
+            return this.game && this.game.cover
+                ? `https://images.igdb.com/igdb/image/upload/t_cover_small_2x/${this.game.cover.image_id}.jpg`
+                : '/static/no-image.jpg';
+        },
+
         thumbnails() {
             // eslint-disable-next-line
             return this.game.screenshots ? this.game.screenshots.map((image) => {
-                return `https://images.igdb.com/igdb/image/upload/t_thumb/${image.cloudinary_id}.jpg`;
+                return `https://images.igdb.com/igdb/image/upload/t_thumb/${image.image_id}.jpg`;
             }) : null;
         },
     },
@@ -64,41 +66,39 @@ export default {
     methods: {
         close() {
             this.index = null;
+            this.$store.commit('SET_SLIDESHOW_OPEN', false);
         },
 
         openGallery(index) {
             this.index = index;
+            this.$store.commit('SET_SLIDESHOW_OPEN', true);
         },
     },
 };
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
     .game-screenshots {
         padding: $gp / 2 $gp;
         text-align: center;
         margin: $gp 0;
-        background-color: $color-light-gray;
-
-        &.dark {
-            background-color: $color-dark-gray;
-        }
 
         h3 {
             margin: 0 0 $gp / 2;
         }
 
         img {
-            margin: 0 $gp / 4;
+            margin: 0 $gp / 4 $gp / 4;
             cursor: pointer;
+            border-radius: $border-radius;
         }
     }
 </style>
 
 <style lang="scss" rel="stylesheet/scss">
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
     .blueimp-gallery {
 
@@ -138,23 +138,17 @@ export default {
         }
 
         .close {
-            line-height: normal;
-            opacity: 1;
-            padding: $gp;
-            position: absolute;
-            font-size: 20px;
-            margin: -15px 0 !important;
-            top: 0;
-            right: $gp * 4;
-            text-decoration: none;
-
             &:before {
                 font-size: 12px;
                 font-weight: 900;
-                content: "Back to game";
-                border: 1px solid $color-gray;
+                font-family: "Font Awesome 5 Free";
+                content: "\f00d";
+                border: 1px solid #a5a2a2;
                 border-radius: $border-radius;
-                padding: $gp / 2;
+                position: fixed;
+                right: $gp / 2;
+                top: $gp / 2;
+                width: 30px;
             }
         }
     }

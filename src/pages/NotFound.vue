@@ -22,10 +22,10 @@ export default {
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
     .not-found-page {
-        color: $color-dark-gray;
+        color: #555555;
         min-height: calc(100vh - #{$navHeight});
         padding: 0 $gp;
         display: flex;

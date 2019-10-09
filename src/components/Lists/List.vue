@@ -1,43 +1,37 @@
 <!-- eslint-disable max-len -->
 <template lang="html">
-    <div :class="['list', viewClass, coversSizeClass, { dark: darkModeEnabled }, transparent]">
-        <div class="list-header" :class="{ searching, editing }">
-            <div v-if="searching">
-                {{ $t('gameSearch.title') }}
-                <strong>{{ list[listIndex].name }}</strong>
-            </div>
+    <div :class="['list', viewClass, { unique }]">
+        <header>
+            <span>
+                <i
+                    class="fas fa-magic"
+                    title="List sorted automatically"
+                    v-if="autoSortEnabled"
+                />
+                {{ list[listIndex].name }} ({{ gameList.length }})
+            </span>
 
-            <div v-else-if="editing">
-                <strong>{{ list[listIndex].name }}</strong> settings
-            </div>
+            <list-settings :list-index="listIndex" />
+        </header>
 
-            <list-name-edit
-                v-else
-                :list-name="name"
-                :list-index="listIndex"
-                :game-count="games.length"
-                @update="updateLists('List name saved')"
+        <div
+            :class="`game-grid game-grid-${listIndex}`"
+            v-if="view === 'grid'"
+        >
+            <component
+                v-for="game in gameList"
+                :is="gameCardComponent"
+                :key="`grid-${game}`"
+                :id="game"
+                :game-id="game"
+                :list-id="listIndex"
             />
-
-            <button class="small" @click="editList" v-if="!editing && !searching">
-                <i class="fas fa-cog" />
-            </button>
         </div>
-
-        <game-search
-            v-if="searching"
-            :list-id="listIndex"
-        />
-
-        <list-settings
-            v-else-if="editing"
-            @update="updateLists"
-        />
 
         <draggable
             v-else
             :class="['games', { 'empty': isEmpty }]"
-            :list="games"
+            :list="gameList"
             :id="listIndex"
             :move="validateMove"
             v-bind="gameDraggableOptions"
@@ -45,35 +39,28 @@
             @start="start"
         >
             <component
-                v-for="game in games"
+                v-for="game in sortedGames"
                 :is="gameCardComponent"
-                :key="`covers-${game}`"
+                :key="`grid-${game}`"
                 :id="game"
                 :game-id="game"
                 :list-id="listIndex"
             />
         </draggable>
 
-        <button
-            v-if="!searching && !editing"
-            @click="addGame"
-            class="add-game-button small"
-            :title="$t('list.add')"
-        >
-            <i class="fas fa-plus" />
-        </button>
+        <game-search :list-id="listIndex" />
     </div>
 </template>
 
 <script>
 import draggable from 'vuedraggable';
-import ListNameEdit from '@/components/Lists/ListNameEdit';
+import Masonry from 'masonry-layout';
 import ListSettings from '@/components/Lists/ListSettings';
 import GameCardDefault from '@/components/GameCards/GameCardDefault';
-import GameCardCover from '@/components/GameCards/GameCardCover';
+import GameCardGrid from '@/components/GameCards/GameCardGrid';
 import GameCardWide from '@/components/GameCards/GameCardWide';
 import GameCardText from '@/components/GameCards/GameCardText';
-import GameSearch from '@/components/GameSearch/GameSearch';
+import GameSearch from '@/components/GameSearch';
 import { mapState, mapGetters } from 'vuex';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
@@ -85,23 +72,23 @@ export default {
 
     components: {
         GameCardDefault,
-        GameCardCover,
+        GameCardGrid,
         GameCardWide,
         GameCardText,
         GameSearch,
-        ListNameEdit,
         ListSettings,
         draggable,
     },
 
     props: {
         name: String,
-        games: [Object, Array],
+        gameList: [Object, Array],
         listIndex: [String, Number],
     },
 
     data() {
         return {
+            masonry: null,
             gameDraggableOptions: {
                 handle: '.game-drag-handle',
                 ghostClass: 'card-placeholder',
@@ -112,7 +99,7 @@ export default {
             },
             gameCardComponents: {
                 single: 'GameCardDefault',
-                covers: 'GameCardCover',
+                grid: 'GameCardGrid',
                 wide: 'GameCardWide',
                 text: 'GameCardText',
             },
@@ -120,42 +107,78 @@ export default {
     },
 
     computed: {
-        ...mapState(['user', 'gameLists', 'platform', 'activeListIndex', 'settings', 'searchActive']),
+        ...mapState(['user', 'gameLists', 'platform', 'settings', 'games']),
 
-        ...mapGetters(['darkModeEnabled']),
+        ...mapGetters(['brandingEnabled']),
+
+        autoSortEnabled() {
+            const list = this.list[this.listIndex];
+
+            return list && list.sortOrder && list.sortOrder !== 'sortByCustom';
+        },
+
+        sortedGames() {
+            const sortOrder = this.list[this.listIndex].sortOrder || 'sortByCustom';
+            const { gameList } = this;
+
+            switch (sortOrder) {
+            case 'sortByCustom':
+                return gameList;
+            case 'sortByRating':
+                return gameList.sort((a, b) => {
+                    const gameA = this.games[a] && this.games[a].rating
+                        ? this.games[a].rating
+                        : 0;
+
+                    const gameB = this.games[b] && this.games[b].rating
+                        ? this.games[b].rating
+                        : 0;
+
+                    if (gameA > gameB) {
+                        return -1;
+                    }
+
+                    return gameA < gameB ? 1 : 0;
+                });
+            case 'sortByName':
+                return gameList.sort((a, b) => {
+                    const gameA = this.games[a] && this.games[a].name
+                        ? this.games[a].name.toUpperCase()
+                        : '';
+
+                    const gameB = this.games[b] && this.games[b].name
+                        ? this.games[b].name.toUpperCase()
+                        : '';
+
+                    if (gameA < gameB) {
+                        return -1;
+                    }
+
+                    return gameA > gameB ? 1 : 0;
+                });
+            default:
+                return gameList;
+            }
+        },
 
         list() {
             return this.gameLists[this.platform.code];
         },
 
-        searching() {
-            return this.activeListIndex === this.listIndex && this.searchActive;
-        },
-
-        editing() {
-            return this.activeListIndex === this.listIndex && !this.searchActive;
-        },
-
         isEmpty() {
-            return this.games.length === 0;
+            return this.gameList.length === 0;
         },
 
         view() {
             return this.list[this.listIndex].view;
         },
 
-        coversSizeClass() {
-            return `covers-${this.coversSize}`;
-        },
-
-        coversSize() {
-            const activeList = this.list[this.listIndex];
-
-            return activeList.coversSize || 3;
+        unique() {
+            return this.list.length === 1;
         },
 
         gameCardComponent() {
-            return this.view
+            return this.view && Object.keys(this.gameCardComponents).includes(this.view)
                 ? this.gameCardComponents[this.view]
                 : 'GameCardDefault';
         },
@@ -163,45 +186,59 @@ export default {
         viewClass() {
             return this.list[this.listIndex].view || 'single';
         },
+    },
 
-        transparent() {
-            return this.settings
-                && this.settings.wallpapers
-                && this.settings.wallpapers[this.platform.code]
-                && this.settings.wallpapers[this.platform.code].url
-                && this.settings.wallpapers[this.platform.code].transparent
-                ? 'transparent'
-                : '';
+    watch: {
+        view() {
+            this.initGrid();
+
+            setTimeout(() => {
+                this.initGrid();
+            }, 500);
+        },
+
+        gameList() {
+            this.initGrid();
+
+            setTimeout(() => {
+                this.initGrid();
+            }, 500);
         },
     },
 
-    methods: {
-        updateLists(toastMessage) {
-            this.$store.commit('CLEAR_ACTIVE_LIST_INDEX');
+    mounted() {
+        this.initGrid();
 
+        setTimeout(() => {
+            this.initGrid();
+        }, 500);
+    },
+
+    methods: {
+        initGrid() {
+            if (this.view === 'grid') {
+                this.$nextTick(() => {
+                    // eslint-disable-next-line
+                    this.masonry = new Masonry(`.game-grid-${this.listIndex}`, {
+                        itemSelector: '.game-card',
+                        gutter: 4,
+                    });
+                });
+            }
+        },
+
+        updateLists(toastMessage) {
             const message = toastMessage || 'List saved';
 
+            // TOOD: move to actions
             db.collection('lists').doc(this.user.uid).set(this.gameLists, { merge: true })
                 .then(() => {
                     this.$bus.$emit('TOAST', { message });
                 })
                 .catch(() => {
                     this.$bus.$emit('TOAST', { message: 'Authentication error', type: 'error' });
+                    this.$router.push({ name: 'sessionExpired' });
                 });
-        },
-
-        editList() {
-            if (this.editing) {
-                this.$store.commit('CLEAR_ACTIVE_LIST_INDEX');
-            } else {
-                this.$store.commit('SET_ACTIVE_LIST_INDEX', this.listIndex);
-            }
-        },
-
-        addGame() {
-            this.$store.commit('CLEAR_SEARCH_RESULTS');
-            this.$store.commit('SET_ACTIVE_LIST_INDEX', this.listIndex);
-            this.$store.commit('SET_SEARCH_ACTIVE', true);
         },
 
         validateMove({ from, to }) {
@@ -224,110 +261,52 @@ export default {
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
     .list {
         flex-shrink: 0;
         cursor: default;
         position: relative;
         width: 300px;
-        background-color: $color-light-gray;
+        background: var(--list-background);
         border-radius: $border-radius;
         overflow: hidden;
         margin-right: $gp;
-        max-height: calc(100vh - 81px);
-        transition: width 200ms;
+        max-height: calc(100vh - 100px);
 
         .games {
             display: grid;
         }
 
-        &.transparent {
-            background-color: $color-light-gray-transparent;
-        }
-
-        &.wide {
-            width: $list-width-wide;
-        }
-
-        &.covers {
-            .games {
-                padding-top: $gp / 2;
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                grid-gap: $gp / 4;
-            }
-
-            &.covers-3 {
-                width: 300px;
-
-                .games {
-                    grid-template-columns: repeat(3, 1fr);
-                }
-            }
-
-            &.covers-4 {
-                width: 400px;
-
-                .games {
-                    grid-template-columns: repeat(4, 1fr);
-                }
-            }
-
-            &.covers-5 {
-                width: 500px;
-
-                .games {
-                    grid-template-columns: repeat(5, 1fr);
-                }
-            }
-
-        }
-
-        &.dark {
-            background-color: $color-dark-gray;
-
-            &.transparent {
-                background-color: $color-dark-gray-transparent;
-            }
-
-            .list-header {
-                background-color: $color-darker-gray;
-            }
-
-            .add-game-button {
-                color: $color-white;
+        &.unique {
+            @media($small) {
+                width: calc(100vw - 80px);
             }
         }
 
-        .list-header {
+        header {
             align-items: center;
-            background: $color-dark-gray;
-            color: $color-white;
+            background: var(--list-header-background);
+            color: var(--list-header-text-color);
             display: flex;
             height: $list-header-height;
             justify-content: space-between;
             padding-left: $gp / 2;
             position: absolute;
+            border-radius: $border-radius;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
             width: 100%;
-
-            &.searching {
-                background: $color-green;
-            }
-
-            &.editing {
-                background: $color-blue;
-            }
         }
 
         .games {
             height: 100%;
             overflow: hidden;
-            max-height: calc(100vh - 154px);
+            max-height: calc(100vh - 150px);
             min-height: 80px;
             overflow-y: auto;
             margin-top: $list-header-height;
-            padding: 0 $gp / 2;
+            padding: $gp / 2 $gp / 2 0;
             width: 100%;
 
             &.empty {
@@ -337,7 +316,7 @@ export default {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border: 1px dashed $color-gray;
+                border: 1px dashed #a5a2a2;
             }
         }
     }
@@ -346,7 +325,16 @@ export default {
         padding: $gp;
     }
 
-    .add-game-button {
+    .game-grid {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        max-height: calc(100vh - 154px);
+        min-height: 80px;
+        overflow-y: auto;
+        margin-top: $list-header-height;
+        padding: 4px;
         width: 100%;
     }
 </style>

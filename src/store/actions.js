@@ -1,4 +1,6 @@
 import axios from 'axios';
+import firebase from 'firebase/app';
+import 'firebase/firestore';
 
 const FIREBASE_URL = 'https://us-central1-gamebrary-8c736.cloudfunctions.net';
 
@@ -11,6 +13,15 @@ export default {
                     resolve();
                 }).catch(reject);
         });
+    },
+
+    SAVE_LIST({ commit, state }, payload) {
+        const db = firebase.firestore();
+
+        db.collection('lists').doc(state.user.uid).set(payload, { merge: true })
+            .then(() => {
+                commit('SAVE_LISTS', payload);
+            });
     },
 
     LOAD_RELEASES({ commit }) {
@@ -45,28 +56,11 @@ export default {
 
     SEARCH({ commit, state }, searchText) {
         return new Promise((resolve, reject) => {
-            axios.get(`${FIREBASE_URL}/search?searchText=${searchText}&platformId=${state.platform.id}`)
+            axios.get(`${FIREBASE_URL}/search?search=${searchText}&platform=${state.platform.id}`)
                 .then(({ data }) => {
-                    const originalData = data.slice();
-                    if (state.platform.id === 37) {
-                        // TODO: specify platform ids in platforms file,
-                        // let endpoint handle multiple ids
-                        axios.get(`${FIREBASE_URL}/search?searchText=${searchText}&platformId=137`)
-                            .then((response) => {
-                                const joinedData = [
-                                    ...originalData,
-                                    ...response.data,
-                                ];
-
-                                commit('SET_SEARCH_RESULTS', joinedData);
-                                commit('CACHE_GAME_DATA', joinedData);
-                                resolve();
-                            }).catch(reject);
-                    } else {
-                        commit('SET_SEARCH_RESULTS', data);
-                        commit('CACHE_GAME_DATA', data);
-                        resolve();
-                    }
+                    commit('SET_SEARCH_RESULTS', data);
+                    commit('CACHE_GAME_DATA', data);
+                    resolve();
                 }).catch(reject);
         });
     },

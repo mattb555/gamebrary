@@ -1,6 +1,6 @@
 <template lang="html">
     <div v-if="gameId && games[gameId]" :class="gameCardClass">
-        <img :src="coverUrl" @click="openDetails" :alt="game.name">
+        <img :src="coverUrl" :alt="game.name">
 
         <div class="game-info">
             <a v-text="game.name" @click="openDetails" />
@@ -13,10 +13,10 @@
             />
 
             <button
-                class="success small tiny"
+                class="primary small add-game-button"
                 @click="addGame"
             >
-                Add to {{ addToLabel }}
+                {{ $t('list.addGame') }}
             </button>
         </div>
     </div>
@@ -36,34 +36,21 @@ export default {
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
+
+    $gameCoverWidth: 80px;
 
     .game-card {
-        background-color: $color-white;
-        margin-top: $gp / 4;
+        background: var(--game-card-background);
+        margin-top: $gp / 2;
+        position: relative;
         display: grid;
-        grid-template-columns: 60px auto;
-
-        &.card-placeholder {
-            background: $color-light-gray;
-            outline: 1px dashed $color-gray;
-            opacity: 0.6;
-
-            .game-card-options {
-                display: none;
-            }
-        }
-
-        &.dark {
-            background: $color-gray;
-
-            img {
-                opacity: 0.9;
-            }
-        }
+        grid-template-columns: $gameCoverWidth auto;
+        border-radius: $border-radius;
+        overflow: hidden;
 
         img {
-            width: 60px;
+            width: $gameCoverWidth;
             height: auto;
             display: flex;
             align-self: center;
@@ -71,24 +58,23 @@ export default {
         }
 
         .game-info {
-            padding: $gp / 2;
-            display: grid;
+            padding: $gp / 2 $gp;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+
+            button {
+                margin-top: $gp / 2;
+                align-self: flex-start;
+            }
+
+            a {
+                color: var(--game-card-text-color);
+            }
 
             .game-rating, a {
                 display: inline-flex;
                 font-weight: bold;
-            }
-
-            &:hover {
-                a {
-                    text-decoration: underline;
-                }
-            }
-
-            a {
-                color: $color-darkest-gray;
-                cursor: pointer;
-                margin-right: $gp / 2;
             }
         }
     }

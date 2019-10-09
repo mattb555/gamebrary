@@ -47,7 +47,7 @@ export default {
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
     .game-videos {
         text-align: center;
@@ -56,7 +56,6 @@ export default {
             position: relative;
             padding-bottom: 56.25%;
             margin: $gp;
-            width: calc(100% - $gp * 2);
             height: 56.25%;
 
             iframe {
@@ -90,7 +89,7 @@ export default {
 
                 i {
                     position: absolute;
-                    color: $color-white;
+                    color: #fff;
                     opacity: 0.7;
                     left: 34px;
                     top: 23px;

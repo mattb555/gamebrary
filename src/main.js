@@ -6,11 +6,10 @@ import axios from 'axios';
 import VueAnalytics from 'vue-analytics';
 import Raven from 'raven-js';
 import RavenVue from 'raven-js/plugins/vue';
-import VueShortKey from 'vue-shortkey';
 import App from './App';
 import messages from './i18n/';
-import router from './router';
 import store from './store/';
+import router from './router';
 
 const EventBus = new Vue();
 
@@ -22,15 +21,10 @@ Object.defineProperties(Vue.prototype, {
     },
 });
 
-Vue.use(VueAnalytics, {
-    id: 'UA-120053966-1',
-    router,
-});
-
+Vue.use(VueAnalytics, { id: 'UA-120053966-1', router });
 Vue.use(VueAxios, axios);
 Vue.use(VueFire);
 Vue.use(VueI18n);
-Vue.use(VueShortKey, { prevent: ['input', 'textarea'] });
 
 if (process.env.NODE_ENV !== 'development') {
     Raven
@@ -53,12 +47,21 @@ router.beforeEach((to, from, next) => {
     }
 });
 
-// console.log(JSON.parse(localStorage.vuex).settings.language);
+const vuexStorage = localStorage && localStorage.vuex
+    ? JSON.parse(localStorage.vuex)
+    : null;
 
-const i18n = new VueI18n({
-    locale: 'en',
-    messages,
-});
+if (vuexStorage && vuexStorage.user && window.FS && window.location.origin.indexOf('localhost') === -1) {
+    const { displayName, email, dateJoined } = vuexStorage.user;
+
+    window.FS.identify(vuexStorage.user.uid, { displayName, email, dateJoined });
+}
+
+const locale = vuexStorage && vuexStorage.settings && vuexStorage.settings.language
+    ? vuexStorage.settings.language
+    : 'en';
+
+const i18n = new VueI18n({ locale, messages });
 
 /* eslint-disable no-new */
 new Vue({

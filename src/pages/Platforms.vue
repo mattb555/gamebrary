@@ -1,56 +1,32 @@
 <template lang="html">
-    <div :class="['platforms-page', { dark: darkModeEnabled }]">
-
+    <div class="platforms-page">
         <div class="platforms">
             <platform
                 v-for="platform in filteredPlatforms"
                 :key="platform.name"
-                :platform-data="platform"
-                :block-height="platform.height"
-                :block-width="platform.width"
+                :platform="platform"
+                clickable
             />
         </div>
 
-        <footer>
-            <small>
-              {{ $t('platforms.donateMessage') }}
-                <a href="https://www.paypal.me/RomanCervantes/5" target="_blank">
-                    {{ $t('platforms.donating') }}
-                </a>
-                ,
-                <a href="https://github.com/romancmx/gamebrary/issues" target="_blank">
-                    {{ $t('platforms.reportBugs') }}
-                </a>
-                {{$t('global.or')}}
-                <a href="https://goo.gl/forms/r0juBCsZaUtJ03qb2" target="_blank">
-                    {{ $t('platforms.submitFeedback') }}
-                </a>
-                .
-            </small>
-
-            <igdb-credit gray />
-        </footer>
+        <page-footer />
     </div>
 </template>
 
 <script>
 import Masonry from 'masonry-layout';
-import platforms from '@/shared/platforms';
-import ToggleSwitch from '@/components/ToggleSwitch/ToggleSwitch';
-import IgdbCredit from '@/components/IgdbCredit/IgdbCredit';
-import Platform from '@/components/Platform/Platform';
-import Panel from '@/components/Panel/Panel';
+import platforms from '@/platforms';
+import Platform from '@/components/Platforms/Platform';
+import PageFooter from '@/components/Platforms/PageFooter';
 import { sortBy } from 'lodash';
-import { mapState, mapGetters } from 'vuex';
+import { mapState } from 'vuex';
 
 let msnry = null;
 
 export default {
     components: {
-        ToggleSwitch,
-        IgdbCredit,
         Platform,
-        Panel,
+        PageFooter,
     },
 
     data() {
@@ -61,8 +37,8 @@ export default {
 
     computed: {
         ...mapState(['gameLists', 'platform', 'settings']),
-        ...mapGetters(['darkModeEnabled']),
 
+        // TODO: move to getter and replace other instances
         hasLists() {
             return Object.keys(this.gameLists).length > 0;
         },
@@ -83,7 +59,7 @@ export default {
 
             return this.settings && this.settings.sortListsAlphabetically
                 ? sortBy(availableLists, 'name')
-                : sortBy(availableLists, 'generation').reverse();
+                : availableLists;
         },
     },
 
@@ -95,78 +71,23 @@ export default {
         initGrid() {
             msnry = new Masonry('.platforms', {
                 itemSelector: '.platform',
-                gutter: 10,
+                gutter: 16,
             });
-        },
-
-        groupLabel(label) {
-            return label === '0'
-                ? this.$t('platforms.computersArcade')
-                : `${this.ordinalSuffix(label)} ${this.$t('platforms.generation')}`;
-        },
-
-        ordinalSuffix(value) {
-            const j = value % 10;
-            const k = value % 100;
-
-            if (j === 1 && k !== 11) {
-                return `${value}${this.$t('platforms.st')}`;
-            }
-
-            if (j === 2 && k !== 12) {
-                return `${value}${this.$t('platforms.nd')}`;
-            }
-            if (j === 3 && k !== 13) {
-                return `${value}${this.$t('platforms.rd')}`;
-            }
-
-            return `${value}${this.$t('platforms.th')}`;
         },
     },
 };
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
     .platforms-page {
-        color: $color-dark-gray;
         min-height: calc(100vh - #{$navHeight});
-        padding: 0 $gp;
-
-        &.dark {
-            color: $color-gray;
-
-            .group-label {
-                background-color: $color-darkest-gray;
-            }
-        }
+        padding: $gp / 2 $gp;
     }
 
     .platforms {
         display: flex;
         flex-direction: column;
-
-        &.reverse {
-            flex-direction: column-reverse;
-        }
-    }
-
-    .group-label {
-        position: sticky;
-        top: 0;
-        padding: $gp / 3 0;
-        background-color: $color-gray;
-    }
-
-    footer {
-        padding: $gp / 2 0;
-        justify-content: center;
-        display: flex;
-        align-items: center;
-
-        a {
-            color: $color-dark-gray;
-        }
     }
 </style>

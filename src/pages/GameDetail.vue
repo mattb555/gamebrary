@@ -1,8 +1,6 @@
 <template lang="html">
     <div class="game-detail-wrapper">
-        <game-detail-placeholder v-if="!game" :id="id" />
-
-        <div class="game-detail" v-else :class="{ dark: darkModeEnabled }">
+        <div class="game-detail" v-if="game">
             <div class="game-hero" :style="style" />
 
             <div class="game-detail-container">
@@ -11,28 +9,10 @@
 
                     <div class="game-details">
                         <h2>{{ game.name }}</h2>
+                        {{ platform.name }}
                         <game-rating :rating="game.rating" />
 
-                        <div class="actions" v-if="list.games.includes(game.id)">
-                            <button
-                                class="error small hollow"
-                                v-shortkey="['del']"
-                                @shortkey="removeGame"
-                                @click="removeGame"
-                            >
-                                <i class="far fa-trash-alt delete-game" />
-                                {{ $t('gameDetail.removeFromList')}}
-                            </button>
-
-                            <div class="tags" v-if="hasTags">
-                                <button class="primary hollow small" @click="openTags">
-                                    <i class="fas fa-tag" />
-                                    {{ $t('tags.addTag') }}
-                                </button>
-                            </div>
-                        </div>
-
-                        <br>
+                        <p class="game-description" v-html="game.summary" />
 
                         <tag
                             v-if="games.includes(game.id)"
@@ -45,13 +25,33 @@
                             @close="removeTag(name)"
                         />
 
-                        <p class="game-description" v-html="game.summary" />
+                        <game-details />
+
+                        <div class="actions">
+                            <button
+                                v-if="list.games.includes(game.id)"
+                                class="danger"
+                                @click="removeGame"
+                            >
+                                <i class="far fa-trash-alt delete-game" />
+                                {{ $t('gameDetail.removeFromList')}}
+                            </button>
+
+                            <button class="primary" v-else>
+                                {{ $t('list.addGame') }}
+
+                            </button>
+
+                            <div class="tags" v-if="hasTags">
+                                <button class="primary hollow" @click="openTags">
+                                    <i class="fas fa-tag" />
+                                    {{ $t('tags.addTag') }}
+                                </button>
+                            </div>
+                        </div>
 
                         <game-notes />
-
-                        <game-review-box />
                     </div>
-
                 </div>
 
                 <game-screenshots />
@@ -59,19 +59,21 @@
                 <igdb-credit gray />
             </div>
         </div>
+
+        <game-detail-placeholder v-else :id="id" />
     </div>
 </template>
 
 <script>
-import { mapState, mapGetters } from 'vuex';
-import Tag from '@/components/Tags/Tag';
+import { mapState } from 'vuex';
+import Tag from '@/components/Tag';
 import GameHeader from '@/components/GameDetail/GameHeader';
 import GameScreenshots from '@/components/GameDetail/GameScreenshots';
-import GameNotes from '@/components/GameNotes/GameNotes';
+import GameNotes from '@/components/GameNotes';
 import GameRating from '@/components/GameDetail/GameRating';
 import GameVideos from '@/components/GameDetail/GameVideos';
-import GameReviewBox from '@/components/GameDetail/GameReviewBox';
-import IgdbCredit from '@/components/IgdbCredit/IgdbCredit';
+import GameDetails from '@/components/GameDetail/GameDetails';
+import IgdbCredit from '@/components/IgdbCredit';
 import GameDetailPlaceholder from '@/components/GameDetail/GameDetailPlaceholder';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
@@ -87,7 +89,7 @@ export default {
         GameScreenshots,
         GameNotes,
         GameVideos,
-        GameReviewBox,
+        GameDetails,
         GameDetailPlaceholder,
     },
 
@@ -98,16 +100,21 @@ export default {
 
     computed: {
         ...mapState(['game', 'user', 'platform', 'tags', 'gameLists']),
-        ...mapGetters(['darkModeEnabled']),
 
         hasTags() {
             return Object.keys(this.tags) && Object.keys(this.tags).length > 0;
         },
 
         style() {
-            return this.game && this.game.screenshots
-                ? `background: url(${this.getImageUrl(this.game.screenshots[0].cloudinary_id)}) center center no-repeat; background-size: cover;`
+            const screenshot = this.game.screenshots && this.game.screenshots.length > 0
+                ? this.game.screenshots[0]
+                : null;
+
+            const screenshotUrl = screenshot && screenshot.image_id
+                ? `https://images.igdb.com/igdb/image/upload/t_screenshot_big/${screenshot.image_id}.jpg`
                 : '';
+
+            return `background: url('${screenshotUrl}') center center no-repeat; background-size: cover;`;
         },
 
         activePlatform() {
@@ -119,10 +126,8 @@ export default {
         },
 
         coverUrl() {
-            const url = 'https://images.igdb.com/igdb/image/upload/t_cover_small_2x/';
-
-            return this.game && this.game.cover
-                ? `${url}${this.game.cover.cloudinary_id}.jpg`
+            return this.game.cover && this.game.cover.image_id
+                ? `https://images.igdb.com/igdb/image/upload/t_cover_small_2x/${this.game.cover.image_id}.jpg`
                 : '/static/no-image.jpg';
         },
     },
@@ -132,12 +137,6 @@ export default {
     },
 
     methods: {
-        getImageUrl(cloudinaryId) {
-            return cloudinaryId
-                ? `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${cloudinaryId}.jpg`
-                : null;
-        },
-
         removeTag(tagName) {
             this.$store.commit('REMOVE_GAME_TAG', { tagName, gameId: this.game.id });
             this.$bus.$emit('SAVE_TAGS', this.tags);
@@ -176,6 +175,7 @@ export default {
 
             this.$store.commit('REMOVE_GAME', data);
 
+            // TOOD: move to actions
             db.collection('lists').doc(this.user.uid).set(this.gameLists, { merge: true })
                 .then(() => {
                     this.$bus.$emit('TOAST', {
@@ -185,6 +185,7 @@ export default {
                 })
                 .catch(() => {
                     this.$bus.$emit('TOAST', { message: 'Authentication error', type: 'error' });
+                    this.$router.push({ name: 'sessionExpired' });
                 });
         },
     },
@@ -192,7 +193,7 @@ export default {
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
     .game-detail {
         display: flex;
@@ -202,28 +203,10 @@ export default {
         @media($small) {
             padding-top: $gp * 2;
         }
-
-        &.dark {
-            color: $color-gray;
-
-            .game-details {
-                @media($small) {
-                    background-color: $color-darker-gray;
-                }
-            }
-
-            .game-detail-container {
-                background-color: $color-darker-gray;
-
-                @media($small) {
-                    background-color: transparent;
-                }
-            }
-        }
     }
 
     .game-hero {
-        background-color: $color-dark-gray;
+        background-color: #555555;
         position: absolute;
         background-position: bottom;
         width: 100%;
@@ -247,7 +230,7 @@ export default {
             margin: -$gp;
             margin-top: $gp;
             padding: $gp;
-            background-color: $color-white;
+            background-color: var(--modal-background);
         }
     }
 
@@ -272,9 +255,10 @@ export default {
     }
 
     .game-detail-container {
-        background-color: rgba(255, 255, 255, 0.95);
-        box-shadow: 0 0 2px 0 $color-gray;
+        box-shadow: 0 0 2px 0 #a5a2a2;
         width: $container-width;
+        background: var(--modal-background);
+        opacity: 0.95;
         max-width: 100%;
         z-index: 1;
         margin: $gp * 3;
@@ -302,9 +286,9 @@ export default {
         display: flex;
         align-items: center;
         margin-top: $gp;
-    }
 
-    .tags {
-        margin-left: $gp;
+        button {
+            margin-right: $gp;
+        }
     }
 </style>

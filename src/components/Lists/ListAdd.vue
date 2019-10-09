@@ -1,159 +1,115 @@
 <template lang="html">
-    <main>
-        <form class="list-add" @submit.prevent="addList">
-            <header>Add list</header>
+    <modal :title="title" ref="listAddModal" @open="open">
+        <button
+            class="small primary add-list-button"
+            :title="$t('list.add')"
+        >
+            <i class="fas fa-plus" />
+        </button>
 
-            <section>
-                <input
-                    v-model="newListName"
-                    type="text"
-                    ref="newListName"
-                    autofocus
-                    required
-                    placeholder="List name (e.g. Owned)"
-                />
-
-                <panel
-                    class="warning"
-                    v-if="isDuplicate"
-                    v-html="errorMessage"
-                />
-
-                <div class="suggestions">
-                    <small>Suggestions:</small>
-
-                    <button
-                        class="small tiny tag primary hollow"
-                        v-for="suggestion in listNameSuggestions"
-                        :key="suggestion"
-                        type="button"
-                        :disabled="listNames.includes(suggestion.toLowerCase())"
-                        @click="addSuggestion(suggestion)"
-                    >
-                        {{ suggestion }}
-                    </button>
-                </div>
-            </section>
+        <form class="list-add" @submit.prevent="addList" slot="content">
+            <input
+                v-model.trim="listName"
+                type="text"
+                autofocus
+                required
+                :placeholder="$t('list.placeholder')"
+            />
 
             <footer>
                 <button
-                    class="small info"
-                    type="button"
-                    v-shortkey="['esc']"
-                    @shortkey="reset"
-                    @click="reset"
+                    class="primary"
+                    type="submit"
+                    :disabled="disabled"
                 >
-                    Cancel
+                    {{ buttonLabel }}
                 </button>
 
-                <button
-                    class="small primary action"
-                    type="submit"
-                    :disabled="isDuplicate || !newListName"
-                    @click="addList"
-                >
-                    Save
-                </button>
+                <small v-if="isDuplicate">{{ $t('list.duplicateWarning') }}</small>
             </footer>
         </form>
-    </main>
+    </modal>
 </template>
 
 <script>
+import Modal from '@/components/Modal';
 import { mapState } from 'vuex';
-import Panel from '@/components/Panel/Panel';
 
 export default {
     components: {
-        Panel,
+        Modal,
     },
 
     data() {
         return {
-            newListName: '',
-            listNameSuggestions: [
-                'Owned',
-                'Wishlist',
-                'Currently Playing',
-                'Completed',
-            ],
+            listName: '',
         };
     },
 
     computed: {
         ...mapState(['gameLists', 'platform']),
 
-        list() {
+        lists() {
             return this.gameLists[this.platform.code];
         },
 
-        errorMessage() {
-            return `You already have a list named <strong>${this.newListName}</strong>. Please use a different name.`;
+        title() {
+            return this.isEmptyBoard
+                ? this.$t('list.addFirstTime')
+                : this.$t('list.add');
         },
 
-        listNames() {
-            return this.list ?
-                this.list.map(({ name }) => name.toLowerCase())
+        buttonLabel() {
+            return this.isEmptyBoard
+                ? this.$t('list.getStarted')
+                : this.$t('global.save');
+        },
+
+        existingListNames() {
+            return this.lists
+                ? this.lists.map(({ name }) => name.toLowerCase())
                 : [];
         },
 
         isDuplicate() {
-            const newListName = this.newListName.toLowerCase();
-
-            return this.list ?
-                this.list.filter(({ name }) => name.toLowerCase() === newListName).length > 0
-                : false;
+            return this.existingListNames.includes(this.listName.toLowerCase());
         },
-    },
 
-    mounted() {
-        this.focusField();
+        isEmptyBoard() {
+            const newList = this.gameLists && this.platform && !this.gameLists[this.platform.code];
+            const emptyList = this.gameLists[this.platform.code]
+                && this.gameLists[this.platform.code].length === 0;
+
+            return newList || emptyList;
+        },
+
+        disabled() {
+            return this.isDuplicate || !this.listName;
+        },
     },
 
     methods: {
-        addSuggestion(suggestion) {
-            this.newListName = suggestion;
-            this.addList();
-        },
-
-        focusField() {
-            this.$nextTick(() => {
-                this.$emit('scroll');
-            });
-        },
-
-        reset() {
-            this.newListName = '';
-            this.$store.commit('SET_ADDING_LIST_STATUS', false);
+        open() {
+            this.listName = '';
         },
 
         addList() {
-            if (this.isDuplicate || !this.newListName) {
+            if (this.disabled) {
                 return;
             }
 
-            this.$store.commit('ADD_LIST', this.newListName);
+            const list = {
+                games: [],
+                name: this.listName,
+            };
 
-            this.$ga.event({
-                eventCategory: 'list',
-                eventAction: 'add',
-                eventLabel: 'listAdded',
-                eventValue: this.newListName,
-            });
+            this.$store.commit('ADD_LIST', list);
 
-            this.$emit('update');
-            this.$emit('scroll');
-            this.reset();
-
-            this.$bus.$emit('TOAST', { message: 'List added' });
-
-            this.$nextTick(() => {
-                this.$emit('scroll');
-            });
-
-            this.$store.commit('CLEAR_SEARCH_RESULTS');
-            this.$store.commit('SET_ACTIVE_LIST_INDEX', this.list.length - 1);
-            this.$store.commit('SET_SEARCH_ACTIVE', true);
+            this.$store.dispatch('SAVE_LIST', this.gameLists)
+                .then(() => {
+                    this.$bus.$emit('TOAST', { message: 'List added' });
+                    this.$refs.listAddModal.close();
+                });
         },
     },
 };
@@ -162,47 +118,23 @@ export default {
 <style lang="scss" rel="stylesheet/scss" scoped>
     @import "src/styles/styles.scss";
 
-    main {
-        flex-shrink: 0;
-        padding-right: $gp;
+    .add-list-button {
+        margin-right: $gp;
     }
 
     .list-add {
-        background: $color-light-gray;
-        width: 300px;
-        border-radius: $border-radius;
-        overflow: hidden;
+        padding: 0 $gp $gp;
+        margin-right: $gp;
     }
 
-    header {
-        display: flex;
-        align-items: center;
-        background: $color-green;
-        color: $color-white;
-        height: $list-header-height;
-        padding-left: $gp / 2;
-    }
-
-    section {
-        padding: $gp / 2;
-
-        small {
-            display: flex;
-            margin-bottom: $gp / 4;
-        }
-
-        input {
-            margin-bottom: $gp / 2;
-        }
-    }
-
-    .panel.warning {
-        margin-bottom: $gp / 2;
+    small {
+        color: var(--note-color);
     }
 
     footer {
-        padding: 0 $gp / 2 $gp / 2;
+        margin-top: $gp;
         display: flex;
+        align-items: center;
         justify-content: space-between;
     }
 </style>

@@ -1,6 +1,6 @@
 input, select {
-    background: $color-white;
-    border: 1px solid $color-dark-gray;
+    background: #fff;
+    border: 1px solid #555555;
     border-radius: $border-radius;
     height: 32px;
     padding: 0 $gp / 2;
@@ -11,5 +11,32 @@ input, select {
     &.small {
         height: 20px;
         margin: 0;
+    }
+}
+
+.checkbox-group {
+    display: inline-flex;
+
+    > span {
+        width: 60px;
+        margin-right: $gp / 2;
+
+        > input {
+            display: none;
+        }
+
+        label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+
+            &.active {
+                color: var(--link-color);
+            }
+
+            i {
+                margin-bottom: $gp / 4;
+            }
+        }
     }
 }

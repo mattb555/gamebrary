@@ -1,17 +1,18 @@
+<!-- TODO: Account for unique list style (100%) -->
 <template lang="html">
-    <div :class="['gameboard-placeholder', { dark: darkModeEnabled }]">
+    <div class="gameboard-placeholder">
         <div
             :class="`list ${list.view || 'single'}`"
             v-for="list in lists"
             :key="list.name"
         >
-            <div class="list-header" />
+            <div class="list-header" :style="style" />
 
             <div class="games">
                 <placeholder
                     image
                     v-for="n in list.games.length"
-                    :lines="list && list.view === 'covers' ? 0 : 2"
+                    :lines="list && list.view === 'grid' ? 0 : 2"
                     :key="n"
                 />
             </div>
@@ -21,7 +22,7 @@
 
 <script>
 import { mapState, mapGetters } from 'vuex';
-import Placeholder from '@/components/Placeholder/Placeholder';
+import Placeholder from '@/components/Placeholder';
 
 export default {
     components: {
@@ -30,12 +31,18 @@ export default {
 
     computed: {
         ...mapState(['gameLists', 'platform']),
-        ...mapGetters(['darkModeEnabled']),
+        ...mapGetters(['brandingEnabled']),
 
         lists() {
             return this.gameLists && this.platform && this.gameLists[this.platform.code]
                 ? this.gameLists[this.platform.code]
                 : [];
+        },
+
+        style() {
+            return this.brandingEnabled
+                ? `background-color: ${this.platform.hex}; opacity: 0.8;`
+                : null;
         },
     },
 
@@ -48,7 +55,7 @@ export default {
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
     .gameboard-placeholder {
         user-select: none;
@@ -60,7 +67,7 @@ export default {
         flex-shrink: 0;
         cursor: default;
         border-radius: $border-radius;
-        background: $color-white;
+        background: var(--list-background);
         overflow: hidden;
         position: relative;
         width: $list-width;
@@ -68,16 +75,15 @@ export default {
         max-height: calc(100vh - 81px);
 
         &.wide {
-            width: $list-width-wide;
             --placeholder-image-width: 80px;
             --placeholder-image-height: 80px;
         }
 
-        &.covers {
+        &.grid {
             --placeholder-image-width: 90px;
         }
 
-        &.covers .games {
+        &.grid .games {
             padding-top: $gp / 2;
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -90,12 +96,8 @@ export default {
         }
     }
 
-    .dark .list {
-        background: $color-dark-gray;
-    }
-
     .list-header {
-        background: $color-dark-gray;
+        background: var(--list-header-background);
         height: $list-header-height;
         position: absolute;
         width: 100%;

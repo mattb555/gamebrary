@@ -115,6 +115,24 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "haseebelahi",
+      "name": "Haseeb Elahi",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/13603051?v=4",
+      "profile": "https://haseebelahi.dev",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "paddykontschak",
+      "name": "Patrick Kontschak",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/984069?v=4",
+      "profile": "http://codinggoat.com",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,

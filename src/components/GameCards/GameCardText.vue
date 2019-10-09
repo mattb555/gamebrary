@@ -2,7 +2,7 @@
     <div v-if="gameId && games[gameId]" :class="gameCardClass">
         <div class="game-info">
             <a v-text="game.name" @click="openDetails"/>
-            <i v-if="isDraggable" class="fas fa-grip-vertical game-drag-handle" />
+            <i class="fas fa-grip-vertical game-drag-handle" />
 
             <game-rating
                 v-if="showGameRatings && list.view !== 'covers'"
@@ -40,7 +40,7 @@
 <script>
 import GameRating from '@/components/GameDetail/GameRating';
 import GameCardUtils from '@/components/GameCards/GameCard';
-import Tag from '@/components/Tags/Tag';
+import Tag from '@/components/Tag';
 
 export default {
     components: {
@@ -53,27 +53,24 @@ export default {
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
     $gameCoverWidth: 80px;
 
     .game-card {
-        background-color: $color-white;
-        margin-top: $gp / 2;
+        background: var(--game-card-background);
+        margin-bottom: $gp / 2;
         position: relative;
+        border-radius: $border-radius;
 
         &.card-placeholder {
-            background: $color-light-gray;
-            outline: 1px dashed $color-gray;
+            background: #e5e5e5;
+            outline: 1px dashed #a5a2a2;
             opacity: 0.6;
 
             .game-card-options {
                 display: none;
             }
-        }
-
-        &.dark {
-            background: $color-gray;
         }
 
         .game-info {
@@ -107,29 +104,21 @@ export default {
             }
 
             a {
-                color: $color-darkest-gray;
                 cursor: pointer;
                 margin-right: $gp / 2;
+                color: var(--game-card-text-color);
             }
         }
 
         .game-drag-handle {
             @include drag-cursor;
             position: absolute;
-            color: $color-light-gray;
+            color: #e5e5e5;
             right: $gp / 3;
             top: $gp / 3;
 
             &:hover {
-                color: $color-gray;
-            }
-        }
-
-        .tags {
-            color: $color-light-gray;
-
-            &:hover {
-                color: $color-blue;
+                color: #a5a2a2;
             }
         }
 
@@ -139,6 +128,6 @@ export default {
     }
 
     .note {
-        color: $color-orange;
+        color: var(--note-color);
     }
 </style>

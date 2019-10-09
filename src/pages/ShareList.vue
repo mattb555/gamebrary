@@ -64,6 +64,9 @@ export default {
         load() {
             const { id, list } = this.$route.query;
 
+            const message = this.$t('errors.loading');
+
+            // TOOD: move to actions
             db.collection('lists').doc(id).get()
                 .then((doc) => {
                     if (doc.exists) {
@@ -74,7 +77,7 @@ export default {
                 })
                 .catch(() => {
                     this.loading = false;
-                    this.$bus.$emit('TOAST', { message: 'Error loading data', type: 'error' });
+                    this.$bus.$emit('TOAST', { message, type: 'error' });
                 });
         },
 
@@ -109,11 +112,11 @@ export default {
 </script>
 
 <style lang="scss" rel="stylesheet/scss" scoped>
-    @import "~styles/styles.scss";
+    @import "~styles/styles";
 
     main {
         align-items: flex-start;
-        background: $color-gray;
+        background: #a5a2a2;
         box-sizing: border-box;
         display: flex;
         height: calc(100vh - #{$navHeight});
@@ -135,8 +138,8 @@ export default {
 
         header {
             align-items: center;
-            background: $color-dark-gray;
-            color: $color-white;
+            background: #555555;
+            color: #fff;
             display: flex;
             height: 30px;
             justify-content: space-between;
@@ -153,7 +156,7 @@ export default {
             overflow-y: auto;
             overflow-y: overlay;
             column-gap: $gp;
-            background: $color-light-gray;
+            background: #e5e5e5;
             margin-top: 30px;
             padding: $gp / 2 $gp / 2 0;
             width: 100%;
@@ -162,7 +165,7 @@ export default {
 
 
         .game-card {
-            background-color: $color-white;
+            background-color: #fff;
             margin-bottom: $gp / 2;
             position: relative;
             display: flex;
